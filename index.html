@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Widget</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .body-wrapper { font-family: 'Outfit', sans-serif; background-color: transparent; }
+        .custom-widget-bg { background: linear-gradient(135deg, #202020 0%, #880808 100%); }
+        .weather-widget::before {
+            content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0) 70%);
+            animation: shimmer 15s infinite linear; pointer-events: none; z-index: 1;
+        }
+        @keyframes shimmer { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .weather-icon-main { filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.3)); animation: floating 3.5s ease-in-out infinite; }
+        @keyframes floating { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-8px); } }
+        #cloud-container { pointer-events: auto; }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fadeInUp { opacity: 0; animation: fadeInUp 0.6s ease-out forwards; }
+        @keyframes fadeInScaleUp { from { opacity: 0; transform: translateY(10px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        .animate-fadeInScaleUp { opacity: 0; animation: fadeInScaleUp 0.7s ease-out forwards; }
+        @keyframes gentleBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+        .animate-gentleBob { animation: gentleBob 2.5s ease-in-out infinite; }
+        .sun-info .sunrise:hover .sun-icon, .sun-info .sunset:hover .sun-icon { transform: rotate(15deg) scale(1.15); }
+        .sun-icon, .forecast-day .forecast-icon { transition: transform 0.3s ease-in-out; }
+        .forecast-day:hover { box-shadow: 0 0 25px rgba(255, 255, 255, 0.1), 0 4px 10px rgba(0,0,0,0.2); }
+        .forecast-day:hover .forecast-icon { transform: scale(1.2) translateY(-2px); }
+        .delay-100 { animation-delay: 0.1s !important; } .delay-200 { animation-delay: 0.2s !important; }
+        .delay-300 { animation-delay: 0.3s !important; } .delay-400 { animation-delay: 0.4s !important; }
+        .delay-500 { animation-delay: 0.5s !important; } .delay-600 { animation-delay: 0.6s !important; }
+        #manualLocationInput {
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            color: white; padding: 4px 8px; border-radius: 6px; font-size: 0.9rem;
+            outline: none; width: 100%; margin-top: 5px;
+        }
+        #manualLocationInput::placeholder { color: rgba(255,255,255,0.5); }
+    </style>
+</head>
+<body>
+
+<div class="body-wrapper min-h-screen flex justify-center items-center p-4">
+    <div class="weather-widget-container relative w-full max-w-sm sm:max-w-md">
+        <div class="weather-widget custom-widget-bg relative text-white backdrop-blur-lg shadow-2xl rounded-3xl p-6 overflow-hidden border border-white/10">
+            <div id="cloud-container" class="absolute top-0 right-0 w-36 h-36 sm:w-40 sm:h-40 z-30 cursor-pointer rounded-tr-3xl overflow-hidden"></div>
+            <div class="relative z-40 pointer-events-none">
+                <div class="flex justify-between items-start">
+                    <div class="date-time text-sm font-light opacity-80 mb-1 tracking-wide animate-fadeInUp" id="dateTime">--:--</div>
+                    <button id="unitToggle" class="text-xs bg-white/10 hover:bg-white/20 px-2 py-1 rounded transition-colors border border-white/10 cursor-pointer pointer-events-auto">°C / °F</button>
+                </div>
+                <div class="current-weather flex items-center mb-2 mt-2">
+                    <div class="weather-icon-main text-5xl mr-3" id="currentWeatherIcon">--</div>
+                    <div class="temp text-5xl font-semibold"><span class="bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-300 animate-fadeInScaleUp delay-100" id="temperature">--°</span></div>
+                </div>
+                <div class="location-container mb-4">
+                    <div class="location text-lg opacity-90 tracking-wide animate-fadeInUp delay-200" id="location">Locating...</div>
+                    <div id="locationSearchContainer" class="hidden animate-fadeInUp delay-200">
+                        <input type="text" id="manualLocationInput" class="pointer-events-auto" placeholder="Enter city..." />
+                    </div>
+                </div>
+                <div class="sun-info bg-black/30 backdrop-blur-sm rounded-2xl p-3 sm:p-4 flex justify-between items-center mb-4 border border-white/10 shadow-md animate-fadeInUp delay-300">
+                    <div class="sunrise text-center"><div class="sun-icon text-xl mb-1">☀️</div><div class="text-xs opacity-80" id="sunriseTime">--:--</div></div>
+                    <div class="day-length text-center text-sm opacity-90" id="dayLength">-- h -- m</div>
+                    <div class="sunset text-center"><div class="sun-icon text-xl mb-1">🌙</div><div class="text-xs opacity-80" id="sunsetTime">--:--</div></div>
+                </div>
+                <div class="precipitation bg-white/10 backdrop-blur-sm rounded-xl p-3 flex items-center mb-4 border border-white/5 shadow-sm animate-fadeInUp delay-400">
+                    <div class="precip-icon text-2xl mr-2 text-blue-300 drop-shadow-lg animate-gentleBob">🌧️</div>
+                    <div class="text-sm opacity-90" id="precipitationChance">Precipitation --%</div>
+                </div>
+                <div class="humidity-wind flex justify-between text-sm opacity-90 mb-5 animate-fadeInUp delay-500">
+                    <div id="humidity">Humidity: --%</div>
+                    <div id="windSpeed">Wind: -- km/h</div>
+                </div>
+                <div class="forecast flex flex-nowrap justify-between pb-2" id="forecastContainer"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+import * as THREE from "https://esm.sh/three";
+import { OrbitControls } from "https://esm.sh/three/examples/jsm/controls/OrbitControls.js";
+
+const $ = id => document.getElementById(id);
+const els = { date: $('dateTime'), temp: $('temperature'), loc: $('location'), sunR: $('sunriseTime'), sunS: $('sunsetTime'), dayL: $('dayLength'), precip: $('precipitationChance'), humid: $('humidity'), wind: $('windSpeed'), icon: $('currentWeatherIcon'), fore: $('forecastContainer'), unit: $('unitToggle'), search: $('locationSearchContainer'), input: $('manualLocationInput') };
+let isC = true, curData = null, lastLat = null, lastLon = null;
+
+els.unit.addEventListener('click', () => { isC = !isC; if(curData) renderWeather(curData); });
+els.input.addEventListener('keypress', e => { if (e.key === 'Enter' && els.input.value.trim()) fetchCity(els.input.value.trim()); });
+
+const getTemp = c => isC ? `${Math.round(c)}°C` : `${Math.round((c * 9/5) + 32)}°F`;
+const getEmoji = c => c <= 1 ? '☀️' : c === 2 ? '⛅' : c === 3 ? '☁️' : (c >= 45 && c <= 48) ? '🌫️' : (c >= 71 && c <= 77) ? '❄️' : c >= 95 ? '⚡' : '🌧️';
+
+const updateTime = () => els.date && (els.date.textContent = new Date().toLocaleString(undefined, {weekday:'long', hour:'2-digit', minute:'2-digit', hour12:false}));
+updateTime(); setInterval(updateTime, 60000);
+
+function renderWeather(data) {
+    const { current: c, daily: d } = data.weather;
+    els.loc.textContent = data.locName;
+    els.temp.textContent = getTemp(c.temperature_2m);
+    els.humid.textContent = `Humidity: ${c.relative_humidity_2m}%`;
+    els.wind.textContent = `Wind: ${c.wind_speed_10m} km/h`;
+    els.precip.textContent = `Rain ${d.precipitation_probability_max[0]}%`;
+    els.icon.textContent = getEmoji(c.weather_code);
+    
+    const [rise, set] = [new Date(d.sunrise[0]), new Date(d.sunset[0])];
+    els.sunR.textContent = rise.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    els.sunS.textContent = set.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    const diff = set - rise, h = Math.floor(diff/36e5), m = Math.round((diff%36e5)/6e4);
+    els.dayL.textContent = `${h} h ${m} m`;
+
+    els.fore.innerHTML = d.time.slice(0,4).map((t, i) => `
+        <div class="forecast-day bg-white/5 backdrop-blur-sm rounded-xl p-3 w-20 text-center border border-white/10 shadow-sm hover:bg-white/10 transition-all duration-200 cursor-pointer transform hover:-translate-y-1 animate-fadeInUp delay-${500+(i*100)} pointer-events-auto">
+            <div class="day-name text-xs font-medium mb-1 opacity-80">${i===0?'Today':new Date(t).toLocaleDateString(undefined,{weekday:'short'})}</div>
+            <div class="forecast-icon text-2xl my-1 drop-shadow-md">${getEmoji(d.weather_code[i])}</div>
+            <div class="high-temp text-sm font-semibold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-300">${getTemp(d.temperature_2m_max[i])}</div>
+            <div class="low-temp text-xs opacity-70">${getTemp(d.temperature_2m_min[i])}</div>
+        </div>`).join('');
+}
+
+async function fetchCoords(lat, lon) {
+    lastLat = lat; lastLon = lon;
+    try {
+        const [w, c] = await Promise.all([
+            fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max&timezone=auto`).then(r=>r.json()),
+            fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`).then(r=>r.json())
+        ]);
+        curData = { weather: w, locName: `${c.city||c.locality||'Unknown'}, ${c.countryCode}` };
+        renderWeather(curData); els.search.classList.add('hidden');
+    } catch { els.loc.textContent = "Error"; }
+}
+
+function fetchCity(city) {
+    els.loc.textContent = "Searching...";
+    fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`)
+        .then(r=>r.json()).then(d => d.results?.length ? fetchCoords(d.results[0].latitude, d.results[0].longitude) : els.loc.textContent = "Not found")
+        .catch(() => els.loc.textContent = "Error");
+}
+
+setInterval(() => lastLat && lastLon && fetchCoords(lastLat, lastLon), 1800000);
+navigator.geolocation ? navigator.geolocation.getCurrentPosition(p => fetchCoords(p.coords.latitude, p.coords.longitude), () => { els.loc.textContent = "Location Denied"; els.search.classList.remove('hidden'); }) : (els.loc.textContent = "Not Supported", els.search.classList.remove('hidden'));
+
+const container = $('cloud-container');
+if (container) {
+    const rect = container.getBoundingClientRect(), scene = new THREE.Scene(),
+          camera = new THREE.PerspectiveCamera(60, rect.width/rect.height, 0.1, 1000),
+          renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(rect.width, rect.height); renderer.setClearColor(0, 0); container.appendChild(renderer.domElement);
+    camera.position.set(0, 0.5, 4.5);
+    scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+    const dl = new THREE.DirectionalLight(0xffffff, 2); dl.position.set(2,3,2); scene.add(dl);
+    const pl = new THREE.PointLight(0xaabbee, 0.8, 15); pl.position.set(-1,1,3); scene.add(pl);
+    
+    const controls = new OrbitControls(camera, renderer.domElement);
+    Object.assign(controls, { enableDamping: true, dampingFactor: 0.07, rotateSpeed: 0.8, enableZoom: false, enablePan: false, minPolarAngle: Math.PI/3, maxPolarAngle: Math.PI/1.8 });
+    controls.target.set(0,0,0);
+
+    const cloudGroup = new THREE.Group(), mat = new THREE.MeshPhysicalMaterial({ color: 0xf0f8ff, transparent: true, opacity: 0.85, roughness: 0.6, transmission: 0.1, ior: 1.3, specularIntensity: 0.2, sheen: 0.2, clearcoat: 0.05 });
+    scene.add(cloudGroup); cloudGroup.position.y = -0.2;
+
+    const createCloud = (x,y,z,s) => {
+        const g = new THREE.Group(); g.position.set(x,y,z); g.scale.set(s,s,s);
+        [{r:0.8,p:[0,0,0]},{r:0.6,p:[0.7,0.2,0.1]},{r:0.55,p:[-0.6,0.1,-0.2]},{r:0.7,p:[0.1,0.4,-0.3]},{r:0.5,p:[0.3,-0.3,0.2]},{r:0.6,p:[-0.4,-0.2,0.3]},{r:0.45,p:[0.8,-0.1,-0.2]},{r:0.5,p:[-0.7,0.3,0.3]}]
+            .forEach(d => { const m = new THREE.Mesh(new THREE.SphereGeometry(d.r,20,20), mat); m.position.set(...d.p); g.add(m); });
+        g.userData = { rain: false, col: Math.random()>0.5?0x87CEFA:0xB0E0E6, org: g.position.clone(), off: Math.random()*Math.PI*2, spd: 0.0005+Math.random()*0.0003, amt: 0.15+Math.random()*0.1 };
+        return g;
+    };
+    const c1 = createCloud(-0.7,0.2,0,1), c2 = createCloud(0.7,-0.1,0.3,0.9);
+    cloudGroup.add(c1, c2);
+
+    const createRain = c => {
+        const g = new THREE.Group(); c.add(g); c.userData.rainG = g;
+        const drops = Array(30).fill().map(() => {
+            const d = new THREE.Mesh(new THREE.CylinderGeometry(0.015,0.015,0.25,6), new THREE.MeshBasicMaterial({color:c.userData.col, transparent:true, opacity:0.7}));
+            d.position.set((Math.random()-0.5)*1.8, -0.8-Math.random()*1.5, (Math.random()-0.5)*1.8);
+            d.userData = { oY: d.position.y, s: 0.08+Math.random()*0.05 }; g.add(d); return d;
+        });
+        g.visible = false; return drops;
+    };
+    const r1 = createRain(c1), r2 = createRain(c2);
+    
+    renderer.domElement.addEventListener('click', e => {
+        const ray = new THREE.Raycaster(), m = new THREE.Vector2();
+        const r = renderer.domElement.getBoundingClientRect();
+        m.x = ((e.clientX-r.left)/r.width)*2-1; m.y = -((e.clientY-r.top)/r.height)*2+1;
+        ray.setFromCamera(m, camera);
+        if (ray.intersectObjects(cloudGroup.children, true).length) {
+            const rainState = !(c1.userData.rain && c2.userData.rain);
+            [c1,c2].forEach(c => { c.userData.rain = rainState; c.userData.rainG.visible = rainState; });
+            const hit = ray.intersectObjects(cloudGroup.children, true)[0].object.parent;
+            if(hit && hit.parent===cloudGroup) { const s = hit.scale.clone(); hit.scale.multiplyScalar(1.15); setTimeout(()=>hit.scale.copy(s), 150); }
+        }
+    });
+
+    (function animate() {
+        requestAnimationFrame(animate); cloudGroup.rotation.y += 0.002; const time = Date.now();
+        [c1, c2].forEach((c, i) => {
+            c.position.y = c.userData.org.y + Math.sin(time*c.userData.spd + c.userData.off)*c.userData.amt;
+            if (c.userData.rain) (i===0?r1:r2).forEach(d => { d.position.y -= d.userData.s; if(d.position.y<-5) { d.position.y=-0.8; d.position.x=(Math.random()-0.5)*1.8*c.scale.x; d.position.z=(Math.random()-0.5)*1.8*c.scale.z; } });
+        });
+        controls.update(); renderer.render(scene, camera);
+    })();
+    window.addEventListener('resize', () => { const r = container.getBoundingClientRect(); if(r.width){ camera.aspect=r.width/r.height; camera.updateProjectionMatrix(); renderer.setSize(r.width,r.height); }});
+}
+</script>
+</body>
+</html>
