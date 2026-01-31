@@ -128,6 +128,7 @@ async function fetchCoords(lat, lon) {
             fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`).then(r=>r.json())
         ]);
         curData = { weather: w, locName: `${c.city||c.locality||'Unknown'}, ${c.countryCode}` };
+        localStorage.setItem(' savedLoc', JSON.stringify({ lat, lon }));
         renderWeather(curData); els.search.classList.add('hidden');
     } catch { els.loc.textContent = "Error"; }
 }
@@ -140,8 +141,23 @@ function fetchCity(city) {
 }
 
 setInterval(() => lastLat && lastLon && fetchCoords(lastLat, lastLon), 1800000);
-navigator.geolocation ? navigator.geolocation.getCurrentPosition(p => fetchCoords(p.coords.latitude, p.coords.longitude), () => { els.loc.textContent = "Location Denied"; els.search.classList.remove('hidden'); }) : (els.loc.textContent = "Not Supported", els.search.classList.remove('hidden'));
-
+const savedLoc = localStorage.getItem('savedLoc');
+    if (savedLoc) {
+        const { lat, lon } =
+    JSON.parse(savedLoc);
+        fetchCoords(lat, lon);
+    } else if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+            P =>
+        fetchCoords(p.coords.latitude,
+        p.coords.longitude),
+            () => { els.loc.txtContent =
+                "Location Denied";
+                  els.search.classList.remove('hidden');}
+                    );
+    } else }
+        els.loc.textContent = "Not Supported";
+    els.search.classList.remove('hidden');} 
 const container = $('cloud-container');
 if (container) {
     const rect = container.getBoundingClientRect(), scene = new THREE.Scene(),
